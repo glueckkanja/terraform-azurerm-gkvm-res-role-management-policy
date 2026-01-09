@@ -1,4 +1,4 @@
-resource "azurerm_role_management_policy" "persona_group_role_assignment_policy" {
+resource "azurerm_role_management_policy" "this" {
   role_definition_id = var.role_definition_id
   scope              = var.scope
 
