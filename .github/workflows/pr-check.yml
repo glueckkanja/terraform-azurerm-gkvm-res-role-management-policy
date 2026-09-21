@@ -15,13 +15,18 @@ concurrency:
 
 jobs:
   check:
+    name: check for fork
     permissions: {}
     runs-on: ubuntu-latest
     steps:
       - name: checking for fork
         shell: pwsh
+        # The flag is passed through the environment rather than interpolated
+        # into the script body, so the expression can never become code.
+        env:
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
         run: |
-          $isFork = "${{ github.event.pull_request.head.repo.fork }}"
+          $isFork = $env:IS_FORK
           if($isFork -eq "true") {
             echo "### WARNING: This workflow is disabled for forked repositories. Please follow the [release branch process](https://azure.github.io/Azure-Verified-Modules/contributing/terraform/terraform-contribution-flow/#5-create-a-pull-request-to-the-upstream-repository) if end to end tests are required." >> $env:GITHUB_STEP_SUMMARY
           }
@@ -35,7 +40,7 @@ jobs:
     name: docs
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: read # Required to check out the module sources.
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,7 +55,7 @@ jobs:
     name: terraform
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: read # Required to check out the module sources.
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -67,7 +72,7 @@ jobs:
     name: avmfix
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: read # Required to check out the module sources.
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -78,6 +83,7 @@ jobs:
         uses: $/.github/actions/avmfix
 
   prcheckcomplete:
+    name: PR check complete
     needs: [docs, terraform, avmfix]
     runs-on: ubuntu-latest
     permissions: {}
