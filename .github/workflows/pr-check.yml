@@ -6,6 +6,13 @@ on:
   merge_group:
   workflow_dispatch:
 
+# Deny everything at the workflow level; each job grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.head.repo.full_name }}/${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   check:
     permissions: {}
@@ -19,11 +26,60 @@ jobs:
             echo "### WARNING: This workflow is disabled for forked repositories. Please follow the [release branch process](https://azure.github.io/Azure-Verified-Modules/contributing/terraform/terraform-contribution-flow/#5-create-a-pull-request-to-the-upstream-repository) if end to end tests are required." >> $env:GITHUB_STEP_SUMMARY
           }
 
-  run-managed-workflow:
+  # Azure/avm-terraform-governance was archived on 2026-08-11 and its
+  # managed-pr-check.yml reusable workflow no longer exists, so the lint,
+  # format and docs checks it used to provide are driven directly from the
+  # composite actions already vendored in this repository.
+  docs:
     if: github.event.pull_request.head.repo.fork == false
-    uses: Azure/avm-terraform-governance/.github/workflows/managed-pr-check.yml@main
-    name: run managed workflow
-    secrets: inherit
+    name: docs
+    runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: check docs
+        uses: $/.github/actions/docs-check
+
+  terraform:
+    if: github.event.pull_request.head.repo.fork == false
+    name: terraform
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: lint terraform
+        uses: $/.github/actions/linting
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  avmfix:
+    if: github.event.pull_request.head.repo.fork == false
+    name: avmfix
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: avmfix
+        uses: $/.github/actions/avmfix
+
+  prcheckcomplete:
+    needs: [docs, terraform, avmfix]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: echo "All PR checks passed"
